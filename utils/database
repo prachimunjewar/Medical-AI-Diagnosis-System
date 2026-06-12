@@ -1,0 +1,149 @@
+import sqlite3
+import pandas as pd
+import os
+
+DB_PATH = "data/patients.db"
+
+
+def init_db():
+    """Create database and patients table if not exists."""
+    os.makedirs("data", exist_ok=True)
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS patients (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            age INTEGER,
+            glucose REAL,
+            blood_pressure REAL,
+            bmi REAL,
+            insulin REAL,
+            skin_thickness REAL,
+            pregnancies INTEGER,
+            diabetes_pedigree REAL,
+            model_used TEXT,
+            prediction TEXT,
+            risk_probability REAL,
+            brain_tumor_result TEXT,
+            brain_tumor_confidence REAL
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+
+def save_patient(patient_data: dict, ml_result: dict, tumor_result: dict = None):
+    """Save a patient diagnosis record to the database."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO patients (
+            age, glucose, blood_pressure, bmi, insulin,
+            skin_thickness, pregnancies, diabetes_pedigree,
+            model_used, prediction, risk_probability,
+            brain_tumor_result, brain_tumor_confidence
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        patient_data.get("Age"),
+        patient_data.get("Glucose"),
+        patient_data.get("BloodPressure"),
+        patient_data.get("BMI"),
+        patient_data.get("Insulin"),
+        patient_data.get("SkinThickness"),
+        patient_data.get("Pregnancies"),
+        patient_data.get("DiabetesPedigreeFunction"),
+        ml_result.get("model"),
+        ml_result.get("label"),
+        ml_result.get("probability"),
+        tumor_result.get("label") if tumor_result else None,
+        tumor_result.get("confidence") if tumor_result else None,
+    ))
+    conn.commit()
+    conn.close()
+
+
+def get_all_patients():
+    """Fetch all patient records."""
+    conn = sqlite3.connect(DB_PATH)
+    df = pd.read_sql_query("SELECT * FROM patients ORDER BY timestamp DESC", conn)
+    conn.close()
+    return df
+
+
+def get_filtered_patients(outcome=None, age_min=None, age_max=None, glucose_min=None, glucose_max=None):
+    """Fetch filtered patient records using SQL WHERE clause."""
+    conn = sqlite3.connect(DB_PATH)
+    query = "SELECT * FROM patients WHERE 1=1"
+    params = []
+
+    if outcome and outcome != "All":
+        query += " AND prediction = ?"
+        params.append(outcome)
+    if age_min is not None:
+        query += " AND age >= ?"
+        params.append(age_min)
+    if age_max is not None:
+        query += " AND age <= ?"
+        params.append(age_max)
+    if glucose_min is not None:
+        query += " AND glucose >= ?"
+        params.append(glucose_min)
+    if glucose_max is not None:
+        query += " AND glucose <= ?"
+        params.append(glucose_max)
+
+    query += " ORDER BY timestamp DESC"
+    df = pd.read_sql_query(query, conn, params=params)
+    conn.close()
+    return df
+
+
+def get_summary_stats():
+    """Get summary statistics using SQL aggregations."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    stats = {}
+
+    cursor.execute("SELECT COUNT(*) FROM patients")
+    stats["total"] = cursor.fetchone()[0]
+
+    cursor.execute("SELECT COUNT(*) FROM patients WHERE prediction = 'Diabetic'")
+    stats["diabetic"] = cursor.fetchone()[0]
+
+    cursor.execute("SELECT COUNT(*) FROM patients WHERE prediction = 'Non-Diabetic'")
+    stats["non_diabetic"] = cursor.fetchone()[0]
+
+    cursor.execute("SELECT ROUND(AVG(glucose), 1) FROM patients")
+    stats["avg_glucose"] = cursor.fetchone()[0] or 0
+
+    cursor.execute("SELECT ROUND(AVG(age), 1) FROM patients")
+    stats["avg_age"] = cursor.fetchone()[0] or 0
+
+    cursor.execute("SELECT ROUND(AVG(bmi), 1) FROM patients")
+    stats["avg_bmi"] = cursor.fetchone()[0] or 0
+
+    cursor.execute("SELECT COUNT(*) FROM patients WHERE brain_tumor_result IS NOT NULL")
+    stats["mri_scans"] = cursor.fetchone()[0]
+
+    conn.close()
+    return stats
+
+
+def delete_patient(patient_id: int):
+    """Delete a patient record by ID."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM patients WHERE id = ?", (patient_id,))
+    conn.commit()
+    conn.close()
+
+
+def clear_all_patients():
+    """Delete all patient records."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM patients")
+    conn.commit()
+    conn.close()
