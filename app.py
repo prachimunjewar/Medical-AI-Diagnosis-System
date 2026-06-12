@@ -9,13 +9,9 @@ from utils.eda import (
 )
 from utils.ml_model import train_and_save_all, load_model, predict_diabetes
 from utils.report_generator import generate_medical_report
-from utils.database import (
-    init_db, save_patient, get_all_patients,
-    get_filtered_patients, get_summary_stats, delete_patient, clear_all_patients
-)
 
-# initialise DB on startup
-init_db()
+
+
 
 # ─── PAGE CONFIG ─────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -397,6 +393,8 @@ elif "Train Models" in page:
 
 # ─── PAGE 3: PATIENT DIAGNOSIS ────────────────────────────────────────────────
 elif "Patient Diagnosis" in page:
+    from utils.database import init_db, save_patient
+    init_db()
     st.markdown("""
     <div class="hero-banner">
         <div class="hero-title">🔬 Patient Diagnosis</div>
@@ -568,7 +566,12 @@ elif "Brain Tumor" in page:
 
 
 # ─── PAGE 5: PATIENT RECORDS (SQL) ───────────────────────────────────────────
-elif "Patient Records" in page:
+elif "Patient Records" in page
+     from utils.database import (
+        init_db, get_all_patients, get_filtered_patients,
+        get_summary_stats, delete_patient, clear_all_patients
+    )
+    init_db()
     st.markdown("""
     <div class="hero-banner">
         <div class="hero-title">🗄️ Patient Records</div>
