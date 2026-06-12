@@ -570,8 +570,8 @@ elif "Patient Records" in page:
      from utils.database import (
         init_db, get_all_patients, get_filtered_patients,
         get_summary_stats, delete_patient, clear_all_patients
-    )
-    init_db()
+     )
+     init_db()
     st.markdown("""
     <div class="hero-banner">
         <div class="hero-title">🗄️ Patient Records</div>
