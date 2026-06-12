@@ -1,0 +1,153 @@
+import numpy as np
+import os
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+
+import tensorflow as tf
+from tensorflow.keras.applications import ResNet50
+from tensorflow.keras.models import Model, load_model
+from tensorflow.keras.layers import Dense, GlobalAveragePooling2D, Dropout
+from tensorflow.keras.preprocessing.image import ImageDataGenerator, img_to_array
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
+from PIL import Image
+
+CLASS_NAMES = ["glioma", "meningioma", "notumor", "pituitary"]
+
+IMG_SIZE = (224, 224)
+BATCH_SIZE = 32
+EPOCHS = 15
+MODELS_DIR = "models"
+MODEL_PATH = os.path.join(MODELS_DIR, "brain_tumor_cnn.h5")
+
+CLASS_INFO = {
+    "glioma": "A tumor that starts in the glial cells of the brain or spine. Can be malignant.",
+    "meningioma": "A tumor that forms on the membranes covering the brain. Usually benign.",
+    "notumor": "No brain tumor detected in the MRI scan.",
+    "pituitary": "A tumor that forms in the pituitary gland at the base of the brain. Usually benign.",
+}
+
+
+def get_data_generators(data_dir):
+    train_datagen = ImageDataGenerator(
+        rescale=1.0 / 255,
+        rotation_range=15,
+        zoom_range=0.1,
+        horizontal_flip=True,
+        width_shift_range=0.1,
+        height_shift_range=0.1,
+        validation_split=0.2,
+    )
+    train_gen = train_datagen.flow_from_directory(
+        data_dir,
+        target_size=IMG_SIZE,
+        batch_size=BATCH_SIZE,
+        class_mode="categorical",
+        subset="training",
+        shuffle=True,
+    )
+    val_gen = train_datagen.flow_from_directory(
+        data_dir,
+        target_size=IMG_SIZE,
+        batch_size=BATCH_SIZE,
+        class_mode="categorical",
+        subset="validation",
+        shuffle=False,
+    )
+    return train_gen, val_gen
+
+
+def build_model(num_classes):
+    base = ResNet50(weights="imagenet", include_top=False, input_shape=(224, 224, 3))
+    for layer in base.layers[:-20]:
+        layer.trainable = False
+    x = base.output
+    x = GlobalAveragePooling2D()(x)
+    x = Dense(512, activation="relu")(x)
+    x = Dropout(0.5)(x)
+    x = Dense(256, activation="relu")(x)
+    x = Dropout(0.3)(x)
+    output = Dense(num_classes, activation="softmax")(x)
+    model = Model(inputs=base.input, outputs=output)
+    model.compile(
+        optimizer=Adam(learning_rate=0.0001),
+        loss="categorical_crossentropy",
+        metrics=["accuracy"],
+    )
+    return model
+
+
+def train_cnn(data_dir):
+    os.makedirs(MODELS_DIR, exist_ok=True)
+
+    # auto detect classes from folder
+    train_gen, val_gen = get_data_generators(data_dir)
+    num_classes = len(train_gen.class_indices)
+    class_names = list(train_gen.class_indices.keys())
+
+    print(f"Found {num_classes} classes: {class_names}")
+
+    # build model with correct number of classes
+    model = build_model(num_classes)
+
+    # save class names alongside model
+    import json
+    os.makedirs(MODELS_DIR, exist_ok=True)
+    with open(os.path.join(MODELS_DIR, "class_names.json"), "w") as f:
+        json.dump(class_names, f)
+
+    callbacks = [
+        EarlyStopping(patience=4, restore_best_weights=True, monitor="val_accuracy"),
+        ModelCheckpoint(MODEL_PATH, save_best_only=True, monitor="val_accuracy"),
+    ]
+    history = model.fit(
+        train_gen,
+        validation_data=val_gen,
+        epochs=EPOCHS,
+        callbacks=callbacks,
+    )
+    return model, history
+
+
+def load_cnn_model():
+    if os.path.exists(MODEL_PATH):
+        return load_model(MODEL_PATH)
+    return None
+
+
+def load_class_names():
+    import json
+    path = os.path.join(MODELS_DIR, "class_names.json")
+    if os.path.exists(path):
+        with open(path, "r") as f:
+            return json.load(f)
+    return ["glioma", "meningioma", "notumor", "pituitary"]
+
+
+def preprocess_image(image):
+    if image.mode != "RGB":
+        image = image.convert("RGB")
+    image = image.resize(IMG_SIZE)
+    arr = img_to_array(image) / 255.0
+    return np.expand_dims(arr, axis=0)
+
+
+def predict_tumor(model, image):
+    class_names = load_class_names()
+    arr = preprocess_image(image)
+    probs = model.predict(arr, verbose=0)[0]
+    predicted_idx = int(np.argmax(probs))
+    predicted_class = class_names[predicted_idx]
+    confidence = round(float(probs[predicted_idx]) * 100, 1)
+
+    all_probs = {class_names[i]: round(float(probs[i]) * 100, 1) for i in range(len(class_names))}
+
+    display_name = predicted_class.replace("notumor", "No Tumor").title()
+    description = CLASS_INFO.get(predicted_class.lower(), "Brain MRI analysis complete.")
+
+    return {
+        "label": display_name,
+        "confidence": confidence,
+        "all_probabilities": {k.replace("notumor", "No Tumor").title(): v for k, v in all_probs.items()},
+        "description": description,
+        "is_tumor": predicted_class.lower() != "notumor",
+    }
