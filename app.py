@@ -566,7 +566,7 @@ elif "Brain Tumor" in page:
 
 
 # ─── PAGE 5: PATIENT RECORDS (SQL) ───────────────────────────────────────────
-elif "Patient Records" in page
+elif "Patient Records" in page:
      from utils.database import (
         init_db, get_all_patients, get_filtered_patients,
         get_summary_stats, delete_patient, clear_all_patients
