@@ -572,6 +572,7 @@ elif "Patient Records" in page:
         get_summary_stats, delete_patient, clear_all_patients
      )
      init_db()
+     
     st.markdown("""
     <div class="hero-banner">
         <div class="hero-title">🗄️ Patient Records</div>
