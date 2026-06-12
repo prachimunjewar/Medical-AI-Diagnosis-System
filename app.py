@@ -8,7 +8,6 @@ from utils.eda import (
     plot_feature_distributions, plot_correlation_heatmap, plot_feature_vs_outcome,
 )
 from utils.ml_model import train_and_save_all, load_model, predict_diabetes
-from utils.cnn_model import load_cnn_model, predict_tumor, load_class_names
 from utils.report_generator import generate_medical_report
 from utils.database import (
     init_db, save_patient, get_all_patients,
@@ -490,6 +489,7 @@ elif "Patient Diagnosis" in page:
 
 # ─── PAGE 4: BRAIN TUMOR MRI ─────────────────────────────────────────────────
 elif "Brain Tumor" in page:
+    from utils.cnn_model import load_cnn_model, predict_tumor, load_class_names
     st.markdown("""
     <div class="hero-banner">
         <div class="hero-title">🧠 Brain Tumor Detection</div>
