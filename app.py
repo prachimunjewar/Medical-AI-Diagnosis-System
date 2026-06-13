@@ -10,6 +10,25 @@ from utils.eda import (
 from utils.ml_model import train_and_save_all, load_model, predict_diabetes
 from utils.report_generator import generate_medical_report
 
+# database import
+try:
+    from utils.database import (
+        init_db, save_patient, get_all_patients,
+        get_filtered_patients, get_summary_stats,
+        delete_patient, clear_all_patients
+    )
+    init_db()
+    DB_OK = True
+except Exception:
+    DB_OK = False
+
+# CNN import
+try:
+    CNN_OK = True
+except Exception:
+    CNN_OK = False
+
+
 # ─── PAGE CONFIG ─────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="MedAI Diagnostics",
@@ -250,12 +269,6 @@ elif "Train Models" in page:
 
 # ─── PAGE 3: PATIENT DIAGNOSIS ────────────────────────────────────────────────
 elif "Patient Diagnosis" in page:
-    try:
-       from utils.database import init_db, save_patient
-       init_db()
-       DB_OK = True
-    except Exception:
-       DB_OK = False
 
     st.markdown("""
     <div class="hero-banner">
@@ -331,8 +344,9 @@ elif "Patient Diagnosis" in page:
             </div>
             """, unsafe_allow_html=True)
 
-        save_patient(patient_data, ml_result, tumor_result)
-        st.success("✅ Patient record saved to SQLite database")
+        if DB_OK:
+            save_patient(patient_data, ml_result, tumor_result)
+            st.success("✅ Patient record saved to SQLite database")
 
         st.markdown('<div class="section-header">AI Generated Medical Report</div>', unsafe_allow_html=True)
         with st.spinner("Groq LLaMA 3.3 generating report..."):
@@ -349,8 +363,6 @@ elif "Patient Diagnosis" in page:
 
 # ─── PAGE 4: BRAIN TUMOR MRI ─────────────────────────────────────────────────
 elif "Brain Tumor" in page:
-    from utils.cnn_model import load_cnn_model, predict_tumor
-
     st.markdown("""
     <div class="hero-banner">
         <div class="hero-title">🧠 Brain Tumor Detection</div>
@@ -366,9 +378,9 @@ elif "Brain Tumor" in page:
     </div>
     """, unsafe_allow_html=True)
 
-    cnn_model = load_cnn_model()
+    cnn_model = load_cnn_model() if CNN_OK else None
 
-    if not cnn_model:
+    if not CNN_OK or not cnn_model:
         st.markdown("""
         <div class="info-card">
             <div class="info-card-title">🔧 CNN Model Not Trained Yet</div>
@@ -438,11 +450,6 @@ elif "Brain Tumor" in page:
 
 # ─── PAGE 5: PATIENT RECORDS ─────────────────────────────────────────────────
 elif "Patient Records" in page:
-    from utils.database import (
-        init_db, get_all_patients, get_filtered_patients,
-        get_summary_stats, delete_patient, clear_all_patients
-    )
-    init_db()
 
     st.markdown("""
     <div class="hero-banner">
