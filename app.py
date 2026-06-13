@@ -251,11 +251,11 @@ elif "Train Models" in page:
 # ─── PAGE 3: PATIENT DIAGNOSIS ────────────────────────────────────────────────
 elif "Patient Diagnosis" in page:
     try:
-    from utils.database import init_db, save_patient
-    init_db()
-    DB_OK = True
+       from utils.database import init_db, save_patient
+       init_db()
+       DB_OK = True
     except Exception:
-    DB_OK = False
+       DB_OK = False
 
     st.markdown("""
     <div class="hero-banner">
