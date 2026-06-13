@@ -378,9 +378,14 @@ elif "Brain Tumor" in page:
     </div>
     """, unsafe_allow_html=True)
 
-    cnn_model = load_cnn_model() if CNN_OK else None
+    cnn_model = None
+    if CNN_OK:
+        try:
+            cnn_model = load_cnn_model()
+        except Exception:
+            cnn_model = None
 
-    if not CNN_OK or not cnn_model:
+    if not cnn_model:
         st.markdown("""
         <div class="info-card">
             <div class="info-card-title">🔧 CNN Model Not Trained Yet</div>
