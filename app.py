@@ -17,7 +17,6 @@ try:
         get_filtered_patients, get_summary_stats,
         delete_patient, clear_all_patients
     )
-    init_db()
     DB_OK = True
 except Exception:
     DB_OK = False
@@ -469,8 +468,10 @@ elif "Patient Records" in page:
     </div>
     """, unsafe_allow_html=True)
 
-    if not DB_OK:
-        st.error("Database not available on this deployment. Run the app locally to use patient records.")
+    # check if supabase is connected
+    from utils.database import get_client as _check_client
+    if not _check_client():
+        st.error("⚠️ Supabase not connected. Check your secrets — SUPABASE_URL and SUPABASE_KEY must be set in Streamlit Cloud secrets.")
         st.stop()
 
     stats = get_summary_stats()
