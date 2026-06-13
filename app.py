@@ -469,6 +469,10 @@ elif "Patient Records" in page:
     </div>
     """, unsafe_allow_html=True)
 
+    if not DB_OK:
+        st.error("Database not available on this deployment. Run the app locally to use patient records.")
+        st.stop()
+
     stats = get_summary_stats()
 
     if stats["total"] == 0:
